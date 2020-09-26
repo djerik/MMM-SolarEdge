@@ -62,7 +62,7 @@ Module.register("MMM-SolarEdge",{
                this.results[0] = currentPower + " Watts";
             }
             this.results[1] = (payload.overview.lastDayData.energy / 1000).toFixed(2) + " kWh";
-	    this.results[2] = (payload.overview.yesterday.energy / 1000).toFixed(2) + " kWh";
+	    this.results[2] = (payload.yesterday / 1000).toFixed(2) + " kWh";
             this.results[3] = (payload.overview.lastMonthData.energy / 1000).toFixed(2) + " kWh";
             this.results[4] = (payload.overview.lastYearData.energy / 1000).toFixed(2) + " kWh";
             this.results[5] = (payload.overview.lifeTimeData.energy / 1000000).toFixed(2) + " MWh";
