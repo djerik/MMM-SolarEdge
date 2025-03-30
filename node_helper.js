@@ -7,7 +7,6 @@ module.exports = NodeHelper.create({
 
 	socketNotificationReceived: function (notification, payload) {
 		var self = this;
-		console.log("Notification: " + notification + " Payload: " + payload);
 
 		if (notification === "GET_SOLAR") {
 			let yesterday = (function (d) { d.setDate(d.getDate() - 1); return d })(new Date);
