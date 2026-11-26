@@ -7,10 +7,12 @@
 Module.register("MMM-SolarEdge",{
     // Default module config.
     defaults: {
-        url: "https://monitoringapi.solaredge.com/site/",
-        apiKey: "", //Enter API key in config.js not here
+        baseUrl: "https://monitoringapi.solaredge.com/v2",
+        clientId: "", //Site Access (OAuth) app from developer.solaredge.com, enter in config.js not here
+        clientSecret: "",
+        apiKey: "", //Only for installer accounts with a v2 Fleet Access key
         siteId: "12345", //Sample site
-        refInterval: 1000 * 60 * 5, //5 minutes
+        refInterval: 1000 * 60 * 60, //1 hour. Each refresh costs 2 API credits, the free tier has 2,000 per month
         basicHeader: false,
     },
 
@@ -54,18 +56,29 @@ Module.register("MMM-SolarEdge",{
 
     //Handle node helper response
     socketNotificationReceived: function(notification, payload) {
+    if (String(payload.siteId) !== String(this.config.siteId)) {
+            return;
+        }
+    if (notification === "SOLAR_ERROR") {
+            Log.error("SolarApp: " + payload.message);
+            this.error = payload.message;
+            this.updateDom();
+        }
     if (notification === "SOLAR_DATA") {
-	    var currentPower = payload.overview.currentPower.power;
+            //Energy values are in Wh, null means the value could not be fetched
+            var kWh = function(wh) { return wh == null ? "-" : (wh / 1000).toFixed(2) + " kWh"; };
+	    var currentPower = payload.currentPower;
 	    if (currentPower > 1000) {
                this.results[0] = (currentPower / 1000).toFixed(2) + " kW";
             } else {
-               this.results[0] = currentPower + " Watts";
+               this.results[0] = Math.round(currentPower) + " Watts";
             }
-            this.results[1] = (payload.overview.lastDayData.energy / 1000).toFixed(2) + " kWh";
-	    this.results[2] = (payload.yesterday / 1000).toFixed(2) + " kWh";
-            this.results[3] = (payload.overview.lastMonthData.energy / 1000).toFixed(2) + " kWh";
-            this.results[4] = (payload.overview.lastYearData.energy / 1000).toFixed(2) + " kWh";
-            this.results[5] = (payload.overview.lifeTimeData.energy / 1000000).toFixed(2) + " MWh";
+            this.results[1] = kWh(payload.today);
+	    this.results[2] = kWh(payload.yesterday);
+            this.results[3] = kWh(payload.month);
+            this.results[4] = kWh(payload.year);
+            this.results[5] = payload.lifetime == null ? "-" : (payload.lifetime / 1000000).toFixed(2) + " MWh";
+            this.error = null;
             this.loaded = true;
             this.updateDom(1000);
         }
@@ -75,14 +88,15 @@ Module.register("MMM-SolarEdge",{
     getDom: function() {
 
         var wrapper = document.createElement("div");
-	if (this.config.apiKey === "" || this.config.siteId === "") {
+	if ((this.config.apiKey === "" && this.config.clientId === "") || this.config.siteId === "") {
 	    wrapper.innerHTML = "Missing configuration.";
 	    return wrapper;
 	}
 
         //Display loading while waiting for API response
         if (!this.loaded) {
-      	    wrapper.innerHTML = "Loading...";
+      	    wrapper.innerHTML = this.error ? this.error : "Loading...";
+            wrapper.className = "small dimmed";
             return wrapper;
       	}
 
